@@ -1,0 +1,31 @@
+name: "CI"
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-20.04
+    env:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Log in to Docker registry
+        run: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.PAT_GHCR }}
+      - name: Extract branch name
+        if: ${{ github.ref != 'refs/heads/master' }}
+        id: branch
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            return context.payload.ref.replace(/refs\/heads\//, '').replace(/\//, '').replace(/"/, '');
+      - name: Build linuxserver.io Docker Mod Image
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: docker build --pull -t "ghcr.io/na4ma4/linuxserver-docker-mods:${{ steps.branch.outputs.result }}" .
+      - name: Push Image
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: docker push "ghcr.io/na4ma4/linuxserver-docker-mods:${{ steps.branch.outputs.result }}"
